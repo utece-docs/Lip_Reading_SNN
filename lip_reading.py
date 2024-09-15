@@ -34,7 +34,7 @@ args = parser.parse_args()
 
 LR = 1e-3 if not args.lr else args.lr
 BATCH_SIZE = 32 if not args.batch_size else args.batch_size
-MODEL_CHECKPOINT_PATH = "small_snn2.pt"
+MODEL_CHECKPOINT_PATH = "checkpoint.pt"
 BEST_MODEL_CHECKPOINT_PATH = "best.pt"
 NUM_CLASSES = 100 if not args.n_class else args.n_class
 EPOCHS  = 100 if not args.max_epoch else args.max_epoch

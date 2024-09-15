@@ -7,7 +7,6 @@ from tqdm import tqdm, trange
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import matplotlib.animation as animation
-from EVisu import EventCount as EventReduction 
 import tonic
 from spikingjelly.activation_based import functional
 from torchmetrics.classification import MulticlassConfusionMatrix
