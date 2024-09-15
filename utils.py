@@ -9,7 +9,6 @@ import matplotlib.cm as cm
 import matplotlib.animation as animation
 import tonic
 from spikingjelly.activation_based import functional
-from torchmetrics.classification import MulticlassConfusionMatrix
 from numpy.lib.recfunctions import structured_to_unstructured
 import random
 
@@ -249,13 +248,6 @@ def label_one_hot(label, num_labels=5):
 	oh = np.zeros((num_labels))
 	oh[label]=1
 	return oh
-
-def print_confusion_mat(preds, targets, num_classes=4):
-	print(preds.shape)
-	print(targets.shape)
-	mat = MulticlassConfusionMatrix(num_classes=num_classes)
-	print("CONFUSION MATRIX:")
-	print(mat(preds, targets))
 
 # Does a center crop from (128, 128) to (96, 96), then a random crop to (88, 88), and flips the image horizontaly with a probability of 0.5
 def center_random_crop(events):
