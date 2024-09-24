@@ -8,6 +8,7 @@ from spikingjelly.activation_based import layer
 import random
 import argparse
 from torch.utils.data import DataLoader
+import time
 
 # Setting some seeds for reproductibility
 torch.manual_seed(42)
@@ -87,7 +88,18 @@ else:
 
 functional.set_step_mode(model, 'm')
 
-optimizer = torch.optim.Adam(model.parameters(), lr=LR, weight_decay=10e-7)
+position_params = []
+others_params = []
+for name, param in model.named_parameters():
+	if name.endswith(".P") or name.endswith(".SIG") and param.requires_grad:
+		position_params.append(param)
+	else:
+		others_params.append(param)
+param_groups = [
+	{"params": others_params, "lr": LR, "weight_decay": 10e-7},
+	{"params": position_params, "lr": LR * 100, "weight_decay": 0.0},
+]
+optimizer = torch.optim.Adam(param_groups)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, EPOCHS)
 
 # Set scheduler to None if you don't want to use it
@@ -118,6 +130,7 @@ torch.autograd.set_detect_anomaly(True)
 
 # Training/testing loop
 for epoch in trange(start_epoch, EPOCHS):
+	epoch_start = time.time()
 	train_loss, train_accuracy = train(model, DEVICE, train_loader, optimizer, num_labels=NUM_CLASSES, scheduler=scheduler)
 	test_loss, accuracy = test(model, DEVICE, test_loader, num_labels=NUM_CLASSES)
 
@@ -147,12 +160,33 @@ for epoch in trange(start_epoch, EPOCHS):
 	}
 	torch.save(checkpoint, BEST_MODEL_CHECKPOINT_PATH)
 
+	epoch_end = time.time()
+	epoch_duration = epoch_end - epoch_start
+	print("Epoch (training) took {:.3f}s".format(epoch_duration))
+
 	print("Train loss at epoch", epoch, ":", train_loss)
 	print("Train accuracy at epoch", epoch, ":", train_accuracy, "%")
 	print("Test loss at epoch", epoch, ":", test_loss)
 	print("Test accuracy at epoch", epoch, ":", accuracy, "%")
 	print("BEST EPOCH SO FAR:",best_epoch)
 
+	with open('res_test.txt', 'a') as f:
+		f.write(
+			"epoch %i: train: %.2f, val: %.2f, train_loss: %.5f, test_loss: %.3f, lr: %.5f, epoch duration: %.3f\n"
+			% (
+				epoch+1,
+				train_accuracy, 
+				accuracy, 
+				train_loss, 
+				test_loss, 
+				optimizer.param_groups[0]["lr"],
+				epoch_duration
+			)
+		)
+
 print("Training done !")
 print("BEST EPOCH:",best_epoch)
 print("Best model saved in", BEST_MODEL_CHECKPOINT_PATH)
+with open('res_' + args.filename + '.txt', 'a') as f:
+	f.write("best epoch, accu (val): %i %.2f"%(best_epoch["epoch"] +1, best_epoch["accuracy"]))
+	f.write('\n')
