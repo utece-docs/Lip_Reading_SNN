@@ -15,7 +15,6 @@ torch.manual_seed(42)
 np.random.seed(42)
 random.seed(42)
 
-# TODO: Write github issue please!
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--lr', type=float, required=False, default=1e-3)
