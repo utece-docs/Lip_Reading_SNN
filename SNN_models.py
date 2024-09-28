@@ -208,7 +208,8 @@ class BasicBlock(torch.nn.Module):
 		self.conv2 = final_conv3x3(planes, planes)
 		self.bn2 = layer.BatchNorm2d(planes)
 		self.spiking2 = spiking_neuron(*args, **kwargs)
-		self.downsample = downsample
+		self.downsample_block = downsample[0] if downsample is not None else None
+		self.downsample = torch.nn.Sequential(*downsample)
 		self.stride = stride
 		self.se = se
 		self.inplanes=inplanes
@@ -251,8 +252,8 @@ class BasicBlock(torch.nn.Module):
 		if self.delayed:
 			self.conv1.clamp_parameters()
 			self.conv2.clamp_parameters()
-			if self.downsample is not None:
-				self.downsample.clamp_parameters()
+			if self.downsample_block is not None:
+				self.downsample_block.clamp_parameters()
 			if self.se:
 				self.conv3.clamp_parameters()
 				self.conv4.clamp_parameters()
@@ -261,8 +262,8 @@ class BasicBlock(torch.nn.Module):
 		if self.delayed:
 			self.conv1.decrease_sig(epoch, epochs)
 			self.conv2.decrease_sig(epoch, epochs)
-			if self.downsample is not None:
-				self.downsample.decrease_sig(epoch, epochs)
+			if self.downsample_block is not None:
+				self.downsample_block.decrease_sig(epoch, epochs)
 			if self.se:
 				self.conv3.decrease_sig(epoch, epochs)
 				self.conv4.decrease_sig(epoch, epochs)
@@ -328,11 +329,11 @@ class ResNet18(torch.nn.Module):
 	def _make_layer(self, block, planes, blocks, stride=1, spiking_neuron=None, delayed=False, *args, **kwargs):
 		downsample = None
 		if stride != 1 or self.inplanes != planes * block.expansion:
-			downsample = torch.nn.Sequential(
+			downsample = [
 				self.get_downsample(block, planes, stride, delayed=delayed),
 				layer.BatchNorm2d(planes * block.expansion),
 				spiking_neuron(*args, **kwargs)
-			)
+			]
 
 		layers = []
 		layers.append(block(self.inplanes, planes, stride, downsample, se=self.se, spiking_neuron=spiking_neuron, delayed=delayed, *args,**kwargs))
