@@ -15,6 +15,7 @@ torch.manual_seed(42)
 np.random.seed(42)
 random.seed(42)
 
+# TODO: Write github issue please!
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--lr', type=float, required=False, default=1e-3)
@@ -22,6 +23,7 @@ parser.add_argument('--batch_size', type=int, required=False, default=32)
 parser.add_argument('-T', type=int, default=30)
 parser.add_argument('--max_epoch', type=int, required=False, default=100)
 parser.add_argument('--resume_training',action='store_true')
+parser.add_argument("-d", dest="is_delayed", action="store_true", default=False, help="delayed network")
 
 # dataset
 parser.add_argument('--dataset', type=str, required=False, default="dvs_lip")
@@ -77,7 +79,7 @@ plif = neuron.ParametricLIFNode
 
 # Define the model to use
 if args.model_name=="spiking_mstp_low":
-	model = LowRateBranch(n_class=NUM_CLASSES, spiking_neuron=plif,  detach_reset=True, surrogate_function=surrogate.Erf(), step_mode='m').to(DEVICE)
+	model = LowRateBranch(n_class=NUM_CLASSES, spiking_neuron=plif, delayed=args.is_delayed, detach_reset=True, surrogate_function=surrogate.Erf(), step_mode='m').to(DEVICE)
 elif args.model_name=="snn1":
 	model = SNN1(n_class=NUM_CLASSES, spiking_neuron=plif,  detach_reset=True, surrogate_function=surrogate.Erf(), step_mode='m').to(DEVICE)
 elif args.model_name=="snn2":
@@ -132,6 +134,7 @@ torch.autograd.set_detect_anomaly(True)
 for epoch in trange(start_epoch, EPOCHS):
 	epoch_start = time.time()
 	train_loss, train_accuracy = train(model, DEVICE, train_loader, optimizer, num_labels=NUM_CLASSES, scheduler=scheduler)
+	model.decrease_sig(epoch, EPOCHS)
 	test_loss, accuracy = test(model, DEVICE, test_loader, num_labels=NUM_CLASSES)
 
 	training_losses.append(train_loss)
@@ -187,6 +190,6 @@ for epoch in trange(start_epoch, EPOCHS):
 print("Training done !")
 print("BEST EPOCH:",best_epoch)
 print("Best model saved in", BEST_MODEL_CHECKPOINT_PATH)
-with open('res_' + args.filename + '.txt', 'a') as f:
+with open('res_test.txt', 'a') as f:
 	f.write("best epoch, accu (val): %i %.2f"%(best_epoch["epoch"] +1, best_epoch["accuracy"]))
 	f.write('\n')
