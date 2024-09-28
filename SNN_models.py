@@ -209,7 +209,7 @@ class BasicBlock(torch.nn.Module):
 		self.bn2 = layer.BatchNorm2d(planes)
 		self.spiking2 = spiking_neuron(*args, **kwargs)
 		self.downsample_block = downsample[0] if downsample is not None else None
-		self.downsample = torch.nn.Sequential(*downsample)
+		self.downsample = torch.nn.Sequential(*downsample) if downsample is not None else None
 		self.stride = stride
 		self.se = se
 		self.inplanes=inplanes
