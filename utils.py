@@ -304,7 +304,7 @@ def train(model, device, train_loader, optimizer, num_labels=70, scheduler=None)
 
 		train_loss += loss.item()
 		functional.reset_net(model)
-		# model.clamp_parameters()
+		model.clamp_parameters()
 
 	if scheduler is not None:
 		scheduler.step()
