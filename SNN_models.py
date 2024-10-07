@@ -10,58 +10,59 @@ from DCLS.construct.modules import Dcls3_1d
 # =======================================================================================================================================
 
 class Dcls3_1_SJ(Dcls3_1d):
-    def __init__(
-        self,
-        in_channels,
-        out_channels,
-        kernel_count,
-        learn_delay=True,
-        stride=1,
-        spatial_padding=0,
-        dense_kernel_size=1,
-        dilated_kernel_size=1,
-        groups=1,
-        bias=True,
-        padding_mode='zeros',
-        version='v1',
-    ):
-        super().__init__(
-            in_channels,
-            out_channels,
-            kernel_count,
-            (*stride, 1),
-            (*spatial_padding, 0),
-            dense_kernel_size,
-            dilated_kernel_size,
-            groups,
-            bias,
-            padding_mode,  
-            version,
-        )
-        self.learn_delay = learn_delay
-        torch.nn.init.constant_(self.P, (dilated_kernel_size[0] // 2)-0.01)
-        if not self.learn_delay:
-            self.P.requies_grad = False
-        if self.version == 'gauss':
-            self.SIG.requires_grad = False
-            self.sig_init = dilated_kernel_size[0]/2
-            torch.nn.init.constant_(self.SIG, self.sig_init)
+	def __init__(
+		self,
+		in_channels,
+		out_channels,
+		kernel_count,
+		learn_delay=True,
+		stride=1,
+		spatial_padding=0,
+		dense_kernel_size=1,
+		dilated_kernel_size=1,
+		groups=1,
+		bias=True,
+		padding_mode='zeros',
+		version='v1',
+	):
+		super().__init__(
+			in_channels,
+			out_channels,
+			kernel_count,
+			(*stride, 1),
+			(*spatial_padding, 0),
+			dense_kernel_size,
+			dilated_kernel_size,
+			groups,
+			bias,
+			padding_mode,  
+			version,
+		)
+		self.learn_delay = learn_delay
+		if not self.learn_delay:
+			self.P.requies_grad = False
+		else:
+			torch.nn.init.constant_(self.P, (dilated_kernel_size[0] // 2)-0.01)
+		if self.version == 'gauss':
+			self.SIG.requires_grad = False
+			self.sig_init = dilated_kernel_size[0]/2
+			torch.nn.init.constant_(self.SIG, self.sig_init)
             
-    def decrease_sig(self, epoch, epochs):
-        if self.version == 'gauss':
-            final_epoch = (1*epochs)//4
-            final_sig = 0.23
-            sig = self.SIG[0, 0, 0, 0, 0, 0].detach().cpu().item()
-            alpha = (final_sig/self.sig_init)**(1/final_epoch)
-            if epoch < final_epoch and sig > final_sig:
-                self.SIG *= alpha
+	def decrease_sig(self, epoch, epochs):
+		if self.version == 'gauss':
+			final_epoch = (1*epochs)//4
+			final_sig = 0.23
+			sig = self.SIG[0, 0, 0, 0, 0, 0].detach().cpu().item()
+			alpha = (final_sig/self.sig_init)**(1/final_epoch)
+			if epoch < final_epoch and sig > final_sig:
+				self.SIG *= alpha
 
-    def forward(self, x):
-        x = x.permute(1, 2, 3, 4, 0) # [T, N, C, H, W] -> [N, C, H, W, T]
-        x = F.pad(x, (self.dilated_kernel_size[0]-1, 0), mode='constant', value=0)
-        x = super().forward(x)
-        x = x.permute(4, 0, 1, 2, 3) # [N, C, H, W, T] -> [T, N, C, H, W]
-        return x
+	def forward(self, x):
+		x = x.permute(1, 2, 3, 4, 0) # [T, N, C, H, W] -> [N, C, H, W, T]
+		x = F.pad(x, (self.dilated_kernel_size[0]-1, 0), mode='constant', value=0)
+		x = super().forward(x)
+		x = x.permute(4, 0, 1, 2, 3) # [N, C, H, W, T] -> [T, N, C, H, W]
+		return x
 
 class SNN1(torch.nn.Module):
 	def __init__(self, n_class=4, spiking_neuron: callable = None, *args, **kwargs):
