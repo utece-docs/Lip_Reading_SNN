@@ -86,19 +86,19 @@ class DelayedConv(torch.nn.Module):
 			torch.nn.init.constant_(self.delay.weight, 1)
 			self.delay.weight.requies_grad = False
 
-		def forward(self, x):
-			if self.delayed:
-				x = self.delay(x)
-			
-			return self.conv(x)
+	def forward(self, x):
+		if self.delayed:
+			x = self.delay(x)
+		
+		return self.conv(x)
 
-		def clamp_parameters(self):
-			if self.delayed:
-				self.delay.clamp_parameters()
+	def clamp_parameters(self):
+		if self.delayed:
+			self.delay.clamp_parameters()
 
-		def decrease_sig(self, epoch, epochs):
-			if self.delayed:
-				self.delay.decrease_sig(epoch, epochs)
+	def decrease_sig(self, epoch, epochs):
+		if self.delayed:
+			self.delay.decrease_sig(epoch, epochs)
 
 class SNN1(torch.nn.Module):
 	def __init__(self, n_class=4, spiking_neuron: callable = None, *args, **kwargs):
