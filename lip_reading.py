@@ -154,13 +154,13 @@ for epoch in trange(start_epoch, EPOCHS):
 		best_epoch["val_loss"]=test_loss
 		best_epoch["train_loss"]=train_loss
 		best_epoch["epoch"]=epoch
-		checkpoint={
-		'epoch':epoch,
-		'model':model.state_dict(),
-		'optimizer':optimizer.state_dict(),
-		'scheduler': None if scheduler is None else scheduler.state_dict()
-	}
-	torch.save(checkpoint, BEST_MODEL_CHECKPOINT_PATH)
+		checkpoint = {
+			'epoch':epoch,
+			'model':model.state_dict(),
+			'optimizer':optimizer.state_dict(),
+			'scheduler': None if scheduler is None else scheduler.state_dict()
+		}
+		torch.save(checkpoint, BEST_MODEL_CHECKPOINT_PATH)
 
 	epoch_end = time.time()
 	epoch_duration = epoch_end - epoch_start
