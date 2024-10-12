@@ -63,6 +63,41 @@ class Dcls3_1_SJ(Dcls3_1d):
 		x = super().forward(x)
 		x = x.permute(4, 0, 1, 2, 3) # [N, C, H, W, T] -> [T, N, C, H, W]
 		return x
+	
+class DelayedConv(torch.nn.Module):
+	def __init__(self, in_planes, out_planes, kernel_size, stride, bias, delayed=True):
+		self.delayed = delayed
+		self.conv = layer.Conv2d(in_planes, out_planes, kernel_size=(kernel_size, kernel_size), 
+						   		 stride=(stride, stride), padding=(kernel_size // 2, kernel_size // 2), bias=bias)
+		if self.delayed:
+			self.delay = Dcls3_1_SJ(
+				in_channels=in_planes,
+				out_channels=in_planes,
+				kernel_count=1,
+				learn_delay=True,
+				spatial_padding=(1 // 2, 1 // 2),
+				dense_kernel_size=1,
+				dilated_kernel_size=(3, ),
+				groups=in_planes,
+				bias=False,
+				version="v1",
+    		)
+			torch.nn.init.constant_(self.delay.weight, 1)
+			self.delay.weight.requies_grad = False
+
+		def forward(self, x):
+			if self.delayed:
+				x = self.delay(x)
+			
+			return self.conv(x)
+
+		def clamp_parameters(self):
+			if self.delayed:
+				self.delay.clamp_parameters()
+
+		def decrease_sig(self, epoch, epochs):
+			if self.delayed:
+				self.delay.decrease_sig(epoch, epochs)
 
 class SNN1(torch.nn.Module):
 	def __init__(self, n_class=4, spiking_neuron: callable = None, *args, **kwargs):
@@ -151,12 +186,11 @@ class SNN2(torch.nn.Module):
 # Spiking ResNet - Spiking MSTP Low Branch 
 # =======================================================================================================================================
 
-def conv3x3(in_planes, out_planes, stride=1):
+def conv3x3(in_planes, out_planes, stride=1, axonal_delay=False):
 	"""1x3x3 convolution with padding"""
-	return layer.Conv2d(in_planes, out_planes,
-					 kernel_size=(3, 3), stride=(stride, stride), padding=(1, 1), bias=False)
+	return DelayedConv(in_planes, out_planes, kernel_size=3, stride=stride, bias=False, delayed=axonal_delay)
 
-def new_conv3x3(in_planes, out_planes, stride=1):
+def new_conv3x3(in_planes, out_planes, stride=1, axonal_delay=False):
     return Dcls3_1_SJ(
         in_channels=in_planes,
         out_channels=out_planes,
@@ -171,12 +205,11 @@ def new_conv3x3(in_planes, out_planes, stride=1):
         version="v1",
     )
 
-def conv1x1(in_planes, out_planes, stride=1):
+def conv1x1(in_planes, out_planes, stride=1, axonal_delay=False):
 	"""1x1x1 convolution with padding"""
-	return layer.Conv2d(in_planes, out_planes,
-					 kernel_size=(1, 1), stride=(stride, stride), bias=False)
+	return DelayedConv(in_planes, out_planes, kernel_size=1, stride=stride, bias=False, delayed=axonal_delay)
 
-def new_conv1x1(in_planes, out_planes, stride=1):
+def new_conv1x1(in_planes, out_planes, stride=1, axonal_delay=False):
     return Dcls3_1_SJ(
         in_channels=in_planes,
         out_channels=out_planes,
@@ -195,18 +228,18 @@ def new_conv1x1(in_planes, out_planes, stride=1):
 class BasicBlock(torch.nn.Module):
 	expansion = 1
 
-	def __init__(self, inplanes, planes, stride=1, downsample=None, se=False, spiking_neuron=None, delayed=False, *args, **kwargs):
+	def __init__(self, inplanes, planes, stride=1, downsample=None, se=False, spiking_neuron=None, delayed=False, axonal_delay=False, *args, **kwargs):
 		super(BasicBlock, self).__init__()
 
 		self.delayed = delayed
 		final_conv3x3 = new_conv3x3 if delayed else conv3x3
 		final_conv1x1 = new_conv1x1 if delayed else conv1x1
 
-		self.conv1 = final_conv3x3(inplanes, planes, stride)
+		self.conv1 = final_conv3x3(inplanes, planes, stride, axonal_delay)
 		self.bn1 = layer.BatchNorm2d(planes)
 		self.spiking1 = spiking_neuron(*args, **kwargs)
 		self.relu = torch.nn.ReLU(inplace=True)
-		self.conv2 = final_conv3x3(planes, planes)
+		self.conv2 = final_conv3x3(planes, planes, 1, axonal_delay)
 		self.bn2 = layer.BatchNorm2d(planes)
 		self.spiking2 = spiking_neuron(*args, **kwargs)
 		self.downsample_block = downsample[0] if downsample is not None else None
@@ -218,9 +251,9 @@ class BasicBlock(torch.nn.Module):
 
 		if(self.se):
 			self.gap = layer.AdaptiveAvgPool2d(1)
-			self.conv3 = final_conv1x1(planes, planes//16)
+			self.conv3 = final_conv1x1(planes, planes//16, 1, axonal_delay)
 			self.spiking3 = spiking_neuron(*args, **kwargs)
-			self.conv4 = final_conv1x1(planes//16, planes)
+			self.conv4 = final_conv1x1(planes//16, planes, 1, axonal_delay)
 			self.spiking4 = spiking_neuron(*args, **kwargs)
 
 	def forward(self, x):
@@ -250,28 +283,26 @@ class BasicBlock(torch.nn.Module):
 		return out
 	
 	def clamp_parameters(self):
-		if self.delayed:
-			self.conv1.clamp_parameters()
-			self.conv2.clamp_parameters()
-			if self.downsample_block is not None:
-				self.downsample_block.clamp_parameters()
-			if self.se:
-				self.conv3.clamp_parameters()
-				self.conv4.clamp_parameters()
+		self.conv1.clamp_parameters()
+		self.conv2.clamp_parameters()
+		if self.downsample_block is not None:
+			self.downsample_block.clamp_parameters()
+		if self.se:
+			self.conv3.clamp_parameters()
+			self.conv4.clamp_parameters()
 
 	def decrease_sig(self, epoch, epochs):
-		if self.delayed:
-			self.conv1.decrease_sig(epoch, epochs)
-			self.conv2.decrease_sig(epoch, epochs)
-			if self.downsample_block is not None:
-				self.downsample_block.decrease_sig(epoch, epochs)
-			if self.se:
-				self.conv3.decrease_sig(epoch, epochs)
-				self.conv4.decrease_sig(epoch, epochs)
+		self.conv1.decrease_sig(epoch, epochs)
+		self.conv2.decrease_sig(epoch, epochs)
+		if self.downsample_block is not None:
+			self.downsample_block.decrease_sig(epoch, epochs)
+		if self.se:
+			self.conv3.decrease_sig(epoch, epochs)
+			self.conv4.decrease_sig(epoch, epochs)
 
 
 class ResNet18(torch.nn.Module):
-	def __init__(self, block, layers, se=False, spiking_neuron=None, delayed=False, *args, **kwargs):
+	def __init__(self, block, layers, se=False, spiking_neuron=None, delayed=False, axonal_delay=False, *args, **kwargs):
 		super(ResNet18, self).__init__()
 		in_channels = 1 #kwargs['in_channels']
 		self.low_rate = 1 #kwargs['low_rate']
@@ -290,10 +321,10 @@ class ResNet18(torch.nn.Module):
 		self.delayed = delayed
 
 		self.layers = []
-		self.layer1 = self._make_layer(block, self.base_channel // (1 if self.low_rate else self.alpha), layers[0], spiking_neuron=spiking_neuron, delayed=delayed, *args,**kwargs)
-		self.layer2 = self._make_layer(block, 2 * self.base_channel // (1 if self.low_rate else self.alpha), layers[1], stride=2, spiking_neuron=spiking_neuron, delayed=delayed, *args,**kwargs)
-		self.layer3 = self._make_layer(block, 4 * self.base_channel // (1 if self.low_rate else self.alpha), layers[2], stride=2, spiking_neuron=spiking_neuron, delayed=delayed, *args,**kwargs)
-		self.layer4 = self._make_layer(block, 8 * self.base_channel // (1 if self.low_rate else self.alpha), layers[3], stride=2, spiking_neuron=spiking_neuron, delayed=delayed, *args,**kwargs)
+		self.layer1 = self._make_layer(block, self.base_channel // (1 if self.low_rate else self.alpha), layers[0], spiking_neuron=spiking_neuron, delayed=delayed, axonal_delay=axonal_delay, *args,**kwargs)
+		self.layer2 = self._make_layer(block, 2 * self.base_channel // (1 if self.low_rate else self.alpha), layers[1], stride=2, spiking_neuron=spiking_neuron, delayed=delayed, axonal_delay=axonal_delay, *args,**kwargs)
+		self.layer3 = self._make_layer(block, 4 * self.base_channel // (1 if self.low_rate else self.alpha), layers[2], stride=2, spiking_neuron=spiking_neuron, delayed=delayed, axonal_delay=axonal_delay, *args,**kwargs)
+		self.layer4 = self._make_layer(block, 8 * self.base_channel // (1 if self.low_rate else self.alpha), layers[3], stride=2, spiking_neuron=spiking_neuron, delayed=delayed, axonal_delay=axonal_delay, *args,**kwargs)
 
 		self.avgpool = layer.AdaptiveAvgPool2d(1)
 		if self.low_rate:
@@ -303,7 +334,7 @@ class ResNet18(torch.nn.Module):
 
 		self.spiking2 = spiking_neuron(*args, **kwargs)
 
-	def get_downsample(self, block, planes, stride, delayed=False):
+	def get_downsample(self, block, planes, stride, delayed=False, axonal_delay=False):
 		if delayed:
 			return Dcls3_1_SJ(
 				in_channels=self.inplanes,
@@ -319,28 +350,29 @@ class ResNet18(torch.nn.Module):
 				version="v1",
 			)
 		else:
-			return layer.Conv2d(
+			return DelayedConv(
 				self.inplanes,
 				planes * block.expansion,
 				kernel_size=1, 
-				stride=(stride, stride), 
-				bias=False
+				stride=stride, 
+				bias=False,
+				delayed=axonal_delay
 			)
 		
-	def _make_layer(self, block, planes, blocks, stride=1, spiking_neuron=None, delayed=False, *args, **kwargs):
+	def _make_layer(self, block, planes, blocks, stride=1, spiking_neuron=None, delayed=False, axonal_delay=False, *args, **kwargs):
 		downsample = None
 		if stride != 1 or self.inplanes != planes * block.expansion:
 			downsample = [
-				self.get_downsample(block, planes, stride, delayed=delayed),
+				self.get_downsample(block, planes, stride, delayed=delayed, axonal_delay=axonal_delay),
 				layer.BatchNorm2d(planes * block.expansion),
 				spiking_neuron(*args, **kwargs)
 			]
 
 		layers = []
-		layers.append(block(self.inplanes, planes, stride, downsample, se=self.se, spiking_neuron=spiking_neuron, delayed=delayed, *args,**kwargs))
+		layers.append(block(self.inplanes, planes, stride, downsample, se=self.se, spiking_neuron=spiking_neuron, delayed=delayed, axonal_delay=axonal_delay, *args,**kwargs))
 		self.inplanes = planes * block.expansion
 		for i in range(1, blocks):
-			layers.append(block(self.inplanes, planes, se=self.se, spiking_neuron=spiking_neuron, delayed=delayed, *args,**kwargs))
+			layers.append(block(self.inplanes, planes, se=self.se, spiking_neuron=spiking_neuron, delayed=delayed, axonal_delay=axonal_delay, *args,**kwargs))
 
 		#self.inplanes += self.low_rate * block.expansion * planes // self.alpha #* self.t2s_mul
 		self.inplanes = planes
@@ -443,8 +475,8 @@ class MFM(torch.nn.Module):
 
 
 class LowRateBranch(ResNet18):
-	def __init__(self, block=BasicBlock, layers=[2,2,2,2], se=False, spiking_neuron=None, n_class=5, delayed=False, *args,**kwargs):
-		super().__init__(block, layers, se, spiking_neuron=spiking_neuron, delayed=delayed, *args,**kwargs)
+	def __init__(self, block=BasicBlock, layers=[2,2,2,2], se=False, spiking_neuron=None, n_class=5, delayed=False, axonal_delay=False, *args,**kwargs):
+		super().__init__(block, layers, se, spiking_neuron=spiking_neuron, delayed=delayed, axonal_delay=axonal_delay, *args,**kwargs)
 		self.base_channel = 64 #kargs['base_channel']
 		self.alpha = 1 #kargs['alpha']
 
