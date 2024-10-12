@@ -66,6 +66,7 @@ class Dcls3_1_SJ(Dcls3_1d):
 	
 class DelayedConv(torch.nn.Module):
 	def __init__(self, in_planes, out_planes, kernel_size, stride, bias, delayed=True):
+		super(DelayedConv, self).__init__()
 		self.delayed = delayed
 		self.conv = layer.Conv2d(in_planes, out_planes, kernel_size=(kernel_size, kernel_size), 
 						   		 stride=(stride, stride), padding=(kernel_size // 2, kernel_size // 2), bias=bias)
