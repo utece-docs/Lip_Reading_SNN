@@ -320,6 +320,7 @@ class ResNet18(torch.nn.Module):
 		self.maxpool = layer.MaxPool2d(kernel_size=(3, 3), stride=(2, 2), padding=(1, 1))
 		self.se = se
 		self.delayed = delayed
+		self.axonal_delay = axonal_delay
 
 		self.layers = []
 		self.layer1 = self._make_layer(block, self.base_channel // (1 if self.low_rate else self.alpha), layers[0], spiking_neuron=spiking_neuron, delayed=delayed, axonal_delay=axonal_delay, *args,**kwargs)
@@ -402,7 +403,7 @@ class ResNet18(torch.nn.Module):
 				if m.bias is not None:
 					m.bias.data.zero_()
 
-			if isinstance(m, (Dcls3_1d, Dcls3_1_SJ)):
+			if isinstance(m, (Dcls3_1d, Dcls3_1_SJ)) and not self.axonal_delay:
 				n = (
 					m.dense_kernel_size[0]
 					* m.dense_kernel_size[1]
