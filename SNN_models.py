@@ -84,7 +84,7 @@ class DelayedConv(torch.nn.Module):
 				version="v1",
     		)
 			torch.nn.init.constant_(self.delay.weight, 1)
-			self.delay.weight.requires_grad = False
+			self.delay.weight.requires_grad = True
 
 	def forward(self, x):
 		if self.delayed:
