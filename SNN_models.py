@@ -78,7 +78,7 @@ class DelayedConv(torch.nn.Module):
 				learn_delay=True,
 				spatial_padding=(1 // 2, 1 // 2),
 				dense_kernel_size=1,
-				dilated_kernel_size=(3, ),
+				dilated_kernel_size=(5, ),
 				groups=in_planes,
 				bias=False,
 				version="v1",
