@@ -220,6 +220,7 @@ else:
 				phrases = key.rsplit('.', 1)
 				new_key = phrases[0] + '.conv.' + phrases[1]
 			model_state_dict[new_key] = model_state_dict.pop(key)
+	print(model_state_dict.keys())
 	
 	model.load_state_dict(model_state_dict, strict=True)
 	if args.change:
