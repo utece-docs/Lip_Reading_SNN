@@ -204,7 +204,7 @@ if not args.analysis:
 
 else:
 	model_path = os.path.join(MODEL_BASE_PATH, args.checkpoint_name + '.pt')
-	model_state_dict = torch.load(model_path, map_location='cpu')
+	model_state_dict = torch.load(model_path, map_location=DEVICE)
 	if 'model' in model_state_dict.keys():
 		model_state_dict = model_state_dict['model']
 	if args.change:
