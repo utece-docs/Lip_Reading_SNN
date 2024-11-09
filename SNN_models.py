@@ -87,7 +87,7 @@ class DelayedConv(torch.nn.Module):
 				version="v1",
     		)
 			torch.nn.init.constant_(self.delay.weight, 1)
-			self.delay.weight.requires_grad = False
+			self.delay.weight.requires_grad = True
 
 	def forward(self, x):
 		if self.delayed:
@@ -203,7 +203,7 @@ def new_conv3x3(in_planes, out_planes, stride=1, axonal_delay=False):
         in_channels=in_planes,
         out_channels=out_planes,
         kernel_count=1,
-        learn_delay=True,
+        learn_delay=False,
         stride=(stride, stride),
         spatial_padding=(3 // 2, 3 // 2),
         dense_kernel_size=3,
@@ -222,7 +222,7 @@ def new_conv1x1(in_planes, out_planes, stride=1, axonal_delay=False):
         in_channels=in_planes,
         out_channels=out_planes,
         kernel_count=1,
-        learn_delay=True,
+        learn_delay=False,
         stride=(stride, stride),
         spatial_padding=(1 // 2, 1 // 2),
         dense_kernel_size=1,
@@ -358,7 +358,7 @@ class ResNet18(torch.nn.Module):
 				in_channels=self.inplanes,
 				out_channels=planes * block.expansion,
 				kernel_count=1,
-				learn_delay=True,
+				learn_delay=False,
 				stride=(stride, stride),
 				spatial_padding=(1 // 2, 1 // 2),
 				dense_kernel_size=1,
