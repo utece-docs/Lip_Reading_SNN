@@ -57,6 +57,9 @@ class Dcls3_1_SJ(Dcls3_1d):
 			if epoch < final_epoch and sig > final_sig:
 				self.SIG *= alpha
 
+	def round_pos(self):
+		self.P.round_()
+
 	def forward(self, x):
 		x = x.permute(1, 2, 3, 4, 0) # [T, N, C, H, W] -> [N, C, H, W, T]
 		x = F.pad(x, (self.dilated_kernel_size[0]-1, 0), mode='constant', value=0)
@@ -78,13 +81,13 @@ class DelayedConv(torch.nn.Module):
 				learn_delay=True,
 				spatial_padding=(1 // 2, 1 // 2),
 				dense_kernel_size=1,
-				dilated_kernel_size=(5, ),
+				dilated_kernel_size=(3, ),
 				groups=in_planes,
 				bias=False,
 				version="v1",
     		)
 			torch.nn.init.constant_(self.delay.weight, 1)
-			self.delay.weight.requires_grad = True
+			self.delay.weight.requires_grad = False
 
 	def forward(self, x):
 		if self.delayed:
@@ -99,6 +102,10 @@ class DelayedConv(torch.nn.Module):
 	def decrease_sig(self, epoch, epochs):
 		if self.delayed:
 			self.delay.decrease_sig(epoch, epochs)
+
+	def round_pos(self):
+		if self.delayed:
+			self.delay.round_pos()
 
 class SNN1(torch.nn.Module):
 	def __init__(self, n_class=4, spiking_neuron: callable = None, *args, **kwargs):
@@ -200,7 +207,7 @@ def new_conv3x3(in_planes, out_planes, stride=1, axonal_delay=False):
         stride=(stride, stride),
         spatial_padding=(3 // 2, 3 // 2),
         dense_kernel_size=3,
-        dilated_kernel_size=(7, ),
+        dilated_kernel_size=(3, ),
         groups=1,
         bias=False,
         version="v1",
@@ -219,7 +226,7 @@ def new_conv1x1(in_planes, out_planes, stride=1, axonal_delay=False):
         stride=(stride, stride),
         spatial_padding=(1 // 2, 1 // 2),
         dense_kernel_size=1,
-        dilated_kernel_size=(7, ),
+        dilated_kernel_size=(3, ),
         groups=1,
         bias=False,
         version="v1",
@@ -300,6 +307,15 @@ class BasicBlock(torch.nn.Module):
 		if self.se:
 			self.conv3.decrease_sig(epoch, epochs)
 			self.conv4.decrease_sig(epoch, epochs)
+	
+	def round_pos(self):
+		self.conv1.round_pos()
+		self.conv2.round_pos()
+		if self.downsample_block is not None:
+			self.downsample_block.round_pos()
+		if self.se:
+			self.conv3.round_pos()
+			self.conv4.round_pos()
 
 
 class ResNet18(torch.nn.Module):
@@ -346,7 +362,7 @@ class ResNet18(torch.nn.Module):
 				stride=(stride, stride),
 				spatial_padding=(1 // 2, 1 // 2),
 				dense_kernel_size=1,
-				dilated_kernel_size=(7, ),
+				dilated_kernel_size=(3, ),
 				groups=1,
 				bias=False,
 				version="v1",
@@ -394,6 +410,11 @@ class ResNet18(torch.nn.Module):
 		for layer in self.layers:
 			for block in layer:
 				block.decrease_sig(epoch, epochs)
+	
+	def round_pos(self):
+		for layer in self.layers:
+			for block in layer:
+				block.round_pos()
 
 	def init_params(self):
 		for m in self.modules():

@@ -2,6 +2,7 @@ from SNN_models import *
 from utils import *
 import numpy as np
 import torch
+import os
 from spikingjelly.activation_based import functional, surrogate, neuron
 import tonic
 from spikingjelly.activation_based import layer
@@ -24,6 +25,10 @@ parser.add_argument('--max_epoch', type=int, required=False, default=100)
 parser.add_argument('--resume_training',action='store_true')
 parser.add_argument("-d", dest="is_delayed", action="store_true", default=False, help="delayed network")
 parser.add_argument("-a", dest="has_axonal_delay", action="store_true", default=False, help="axonal-delayed network")
+parser.add_argument("--analysis", action="store_true", default=False, help="analysis existing model")
+parser.add_argument("--round", action="store_true", default=False, help="round positions")
+parser.add_argument('--model_name', type=str, help="existing model name")
+parser.add_argument("--change", action="store_true", default=False, help="change state dict")
 
 # dataset
 parser.add_argument('--dataset', type=str, required=False, default="dvs_lip")
@@ -45,6 +50,8 @@ RESUME_TRAINING = args.resume_training # If true, will load the model saved in M
 DATASET_PATH="/home/hugo/Work/TER/DVS-Lip" if not args.dataset_path else args.dataset_path
 T = args.T
 #DATASET_PATH="/home/hugo/Work/TER/i3s_dataset3"
+
+MODEL_BASE_PATH = os.path.expanduser('~/paper_runs')
 
 # We can either use the DVS-Lip or I3S dataset
 if args.dataset=="dvs_lip":
@@ -130,66 +137,93 @@ best_epoch = {"accuracy":0, "val_loss":9999, "train_loss":9999, "epoch":0}
 
 torch.autograd.set_detect_anomaly(True)
 
-# Training/testing loop
-for epoch in trange(start_epoch, EPOCHS):
-	epoch_start = time.time()
-	train_loss, train_accuracy = train(model, DEVICE, train_loader, optimizer, num_labels=NUM_CLASSES, scheduler=scheduler)
-	model.decrease_sig(epoch, EPOCHS)
-	test_loss, accuracy = test(model, DEVICE, test_loader, num_labels=NUM_CLASSES)
+if not args.analysis:
+	# Training/testing loop
+	for epoch in trange(start_epoch, EPOCHS):
+		epoch_start = time.time()
+		train_loss, train_accuracy = train(model, DEVICE, train_loader, optimizer, num_labels=NUM_CLASSES, scheduler=scheduler)
+		model.decrease_sig(epoch, EPOCHS)
+		test_loss, accuracy = test(model, DEVICE, test_loader, num_labels=NUM_CLASSES)
 
-	training_losses.append(train_loss)
-	mean_losses.append(train_loss)
-	test_losses.append(test_loss)
-	accuracies.append(accuracy)
-	checkpoint={
-		'epoch':epoch,
-		'model':model.state_dict(),
-		'optimizer':optimizer.state_dict(),
-		'scheduler': None if scheduler is None else scheduler.state_dict()
-	}
-	torch.save(checkpoint, MODEL_CHECKPOINT_PATH)
-
-	# We save the best model in BEST_MODEL_CHECKPOINT_PATH
-	if accuracy>best_epoch["accuracy"] or (accuracy==best_epoch["accuracy"] and test_loss<best_epoch["val_loss"]):
-		best_epoch["accuracy"]=accuracy
-		best_epoch["val_loss"]=test_loss
-		best_epoch["train_loss"]=train_loss
-		best_epoch["epoch"]=epoch
-		checkpoint = {
+		training_losses.append(train_loss)
+		mean_losses.append(train_loss)
+		test_losses.append(test_loss)
+		accuracies.append(accuracy)
+		checkpoint={
 			'epoch':epoch,
 			'model':model.state_dict(),
 			'optimizer':optimizer.state_dict(),
 			'scheduler': None if scheduler is None else scheduler.state_dict()
 		}
-		torch.save(checkpoint, BEST_MODEL_CHECKPOINT_PATH)
+		torch.save(checkpoint, MODEL_CHECKPOINT_PATH)
 
-	epoch_end = time.time()
-	epoch_duration = epoch_end - epoch_start
-	print("Epoch (training) took {:.3f}s".format(epoch_duration))
+		# We save the best model in BEST_MODEL_CHECKPOINT_PATH
+		if accuracy>best_epoch["accuracy"] or (accuracy==best_epoch["accuracy"] and test_loss<best_epoch["val_loss"]):
+			best_epoch["accuracy"]=accuracy
+			best_epoch["val_loss"]=test_loss
+			best_epoch["train_loss"]=train_loss
+			best_epoch["epoch"]=epoch
+			checkpoint = {
+				'epoch':epoch,
+				'model':model.state_dict(),
+				'optimizer':optimizer.state_dict(),
+				'scheduler': None if scheduler is None else scheduler.state_dict()
+			}
+			torch.save(checkpoint, BEST_MODEL_CHECKPOINT_PATH)
 
-	print("Train loss at epoch", epoch, ":", train_loss)
-	print("Train accuracy at epoch", epoch, ":", train_accuracy, "%")
-	print("Test loss at epoch", epoch, ":", test_loss)
-	print("Test accuracy at epoch", epoch, ":", accuracy, "%")
-	print("BEST EPOCH SO FAR:",best_epoch)
+		epoch_end = time.time()
+		epoch_duration = epoch_end - epoch_start
+		print("Epoch (training) took {:.3f}s".format(epoch_duration))
 
-	with open('res_test.txt', 'a') as f:
-		f.write(
-			"epoch %i: train: %.2f, val: %.2f, train_loss: %.5f, test_loss: %.3f, lr: %.5f, epoch duration: %.3f\n"
-			% (
-				epoch+1,
-				train_accuracy, 
-				accuracy, 
-				train_loss, 
-				test_loss, 
-				optimizer.param_groups[0]["lr"],
-				epoch_duration
+		print("Train loss at epoch", epoch, ":", train_loss)
+		print("Train accuracy at epoch", epoch, ":", train_accuracy, "%")
+		print("Test loss at epoch", epoch, ":", test_loss)
+		print("Test accuracy at epoch", epoch, ":", accuracy, "%")
+		print("BEST EPOCH SO FAR:",best_epoch)
+
+		with open('res_test.txt', 'a') as f:
+			f.write(
+				"epoch %i: train: %.2f, val: %.2f, train_loss: %.5f, test_loss: %.3f, lr: %.5f, epoch duration: %.3f\n"
+				% (
+					epoch+1,
+					train_accuracy, 
+					accuracy, 
+					train_loss, 
+					test_loss, 
+					optimizer.param_groups[0]["lr"],
+					epoch_duration
+				)
 			)
-		)
 
-print("Training done !")
-print("BEST EPOCH:",best_epoch)
-print("Best model saved in", BEST_MODEL_CHECKPOINT_PATH)
-with open('res_test.txt', 'a') as f:
-	f.write("best epoch, accu (val): %i %.2f"%(best_epoch["epoch"] +1, best_epoch["accuracy"]))
-	f.write('\n')
+	print("Training done !")
+	print("BEST EPOCH:",best_epoch)
+	print("Best model saved in", BEST_MODEL_CHECKPOINT_PATH)
+	with open('res_test.txt', 'a') as f:
+		f.write("best epoch, accu (val): %i %.2f"%(best_epoch["epoch"] +1, best_epoch["accuracy"]))
+		f.write('\n')
+
+else:
+	model_path = os.path.join(MODEL_BASE_PATH, args.model_name + '.pt')
+	model_state_dict = torch.load(model_path, map_location='cpu')
+	if 'model' in model_state_dict.keys():
+		model_state_dict = model_state_dict['model']
+	if args.change:
+		keys = list(model_state_dict.keys())
+		for key in keys:
+			new_key = key
+			if 'downsample.0' in key:
+				new_key = key.replace('downsample.0.', 'downsample.0.conv.')
+			elif 'downsample_block' in key:
+				new_key = key.replace('downsample_block.', 'downsample_block.conv.')
+			elif 'conv' in key:
+				phrases = key.rsplit('.', 1)
+				new_key = phrases[0] + '.conv.' + phrases[1]
+			model_state_dict[new_key] = model_state_dict.pop(key)
+	
+	model.load_state_dict(model_state_dict, strict=True)
+	if args.change:
+		model.round_pos()
+	print(f'Total number of parameters: {sum(p.numel() for p in model.parameters())}')
+	test_loss, accuracy = test(model, DEVICE, test_loader, num_labels=NUM_CLASSES)
+	print(f'Test Accuracy: {accuracy}')
+	print('###############################333')
