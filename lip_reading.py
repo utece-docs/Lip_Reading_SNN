@@ -205,7 +205,6 @@ if not args.analysis:
 else:
 	model_path = os.path.join(MODEL_BASE_PATH, args.checkpoint_name + '.pt')
 	model_state_dict = torch.load(model_path, map_location=DEVICE)
-	print(model.state_dict().keys())
 	if 'model' in model_state_dict.keys():
 		model_state_dict = model_state_dict['model']
 	if args.change:
@@ -216,11 +215,10 @@ else:
 				new_key = key.replace('downsample.0.', 'downsample.0.conv.')
 			elif 'downsample_block' in key:
 				new_key = key.replace('downsample_block.', 'downsample_block.conv.')
-			elif 'conv' in key:
+			elif 'conv' in key and 'layer' in key:
 				phrases = key.rsplit('.', 1)
 				new_key = phrases[0] + '.conv.' + phrases[1]
 			model_state_dict[new_key] = model_state_dict.pop(key)
-	print(model_state_dict.keys())
 	
 	model.load_state_dict(model_state_dict, strict=True)
 	if args.change:
