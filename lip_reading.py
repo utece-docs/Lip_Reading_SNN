@@ -27,7 +27,7 @@ parser.add_argument("-d", dest="is_delayed", action="store_true", default=False,
 parser.add_argument("-a", dest="has_axonal_delay", action="store_true", default=False, help="axonal-delayed network")
 parser.add_argument("--analysis", action="store_true", default=False, help="analysis existing model")
 parser.add_argument("--round", action="store_true", default=False, help="round positions")
-parser.add_argument('--model_name', type=str, help="existing model name")
+parser.add_argument('--checkpoint_name', type=str, help="checkpoint model name")
 parser.add_argument("--change", action="store_true", default=False, help="change state dict")
 
 # dataset
@@ -203,7 +203,7 @@ if not args.analysis:
 		f.write('\n')
 
 else:
-	model_path = os.path.join(MODEL_BASE_PATH, args.model_name + '.pt')
+	model_path = os.path.join(MODEL_BASE_PATH, args.checkpoint_name + '.pt')
 	model_state_dict = torch.load(model_path, map_location='cpu')
 	if 'model' in model_state_dict.keys():
 		model_state_dict = model_state_dict['model']
