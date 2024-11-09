@@ -221,9 +221,9 @@ else:
 			model_state_dict[new_key] = model_state_dict.pop(key)
 	
 	model.load_state_dict(model_state_dict, strict=True)
-	model.eval()
 	if args.round:
-		model.round_pos()
+		with torch.no_grad():
+			model.round_pos()
 	print(f'Total number of parameters: {sum(p.numel() for p in model.parameters())}')
 	test_loss, accuracy = test(model, DEVICE, test_loader, num_labels=NUM_CLASSES)
 	print(f'Test Accuracy: {accuracy}')
