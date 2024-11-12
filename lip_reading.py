@@ -24,7 +24,8 @@ parser.add_argument('-T', type=int, default=30)
 parser.add_argument('--max_epoch', type=int, required=False, default=100)
 parser.add_argument('--resume_training',action='store_true')
 parser.add_argument("-d", dest="is_delayed", action="store_true", default=False, help="delayed network")
-parser.add_argument("-a", dest="has_axonal_delay", action="store_true", default=False, help="axonal-delayed network")
+parser.add_argument("--axonal", dest="has_axonal_delay", action="store_true", default=False, help="axonal-delayed network")
+parser.add_argument("--dendritic", dest="has_dendritic_delay", action="store_true", default=False, help="dendritic-delayed network")
 parser.add_argument("--analysis", action="store_true", default=False, help="analysis existing model")
 parser.add_argument("--round", action="store_true", default=False, help="round positions")
 parser.add_argument('--checkpoint_name', type=str, help="checkpoint model name")
@@ -86,7 +87,7 @@ plif = neuron.ParametricLIFNode
 
 # Define the model to use
 if args.model_name=="spiking_mstp_low":
-	model = LowRateBranch(n_class=NUM_CLASSES, spiking_neuron=plif, delayed=args.is_delayed, axonal_delay=args.has_axonal_delay, detach_reset=True, surrogate_function=surrogate.Erf(), step_mode='m').to(DEVICE)
+	model = LowRateBranch(n_class=NUM_CLASSES, spiking_neuron=plif, delayed=args.is_delayed, axonal_delay=args.has_axonal_delay, dendritic_delay=args.has_dendritic_delay, detach_reset=True, surrogate_function=surrogate.Erf(), step_mode='m').to(DEVICE)
 elif args.model_name=="snn1":
 	model = SNN1(n_class=NUM_CLASSES, spiking_neuron=plif,  detach_reset=True, surrogate_function=surrogate.Erf(), step_mode='m').to(DEVICE)
 elif args.model_name=="snn2":
@@ -227,4 +228,4 @@ else:
 	print(f'Total number of parameters: {sum(p.numel() for p in model.parameters())}')
 	test_loss, accuracy = test(model, DEVICE, test_loader, num_labels=NUM_CLASSES)
 	print(f'Test Accuracy: {accuracy}')
-	print('###############################333')
+	print('###############################')
