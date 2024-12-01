@@ -39,8 +39,13 @@ class Dcls3_1_SJ(Dcls3_1d):
 			version,
 		)
 		self.learn_delay = learn_delay
+		self.random_delay = True
 		if not self.learn_delay:
 			self.P.requires_grad = False
+		if self.random_delay:
+			with torch.no_grad():
+				lim = dilated_kernel_size[0] // 2
+				self.P.data = torch.randint(-lim, lim+1, self.P.shape)
 		else:
 			torch.nn.init.constant_(self.P, (dilated_kernel_size[0] // 2)-0.01)
 		if self.version == 'gauss':
@@ -228,7 +233,7 @@ def new_conv3x3(in_planes, out_planes, stride=1, axonal_delay=False, dendritic_d
         in_channels=in_planes,
         out_channels=out_planes,
         kernel_count=1,
-        learn_delay=True,
+        learn_delay=False,
         stride=(stride, stride),
         spatial_padding=(3 // 2, 3 // 2),
         dense_kernel_size=3,
@@ -247,7 +252,7 @@ def new_conv1x1(in_planes, out_planes, stride=1, axonal_delay=False, dendritic_d
         in_channels=in_planes,
         out_channels=out_planes,
         kernel_count=1,
-        learn_delay=True,
+        learn_delay=False,
         stride=(stride, stride),
         spatial_padding=(1 // 2, 1 // 2),
         dense_kernel_size=1,
@@ -384,7 +389,7 @@ class ResNet18(torch.nn.Module):
 				in_channels=self.inplanes,
 				out_channels=planes * block.expansion,
 				kernel_count=1,
-				learn_delay=True,
+				learn_delay=False,
 				stride=(stride, stride),
 				spatial_padding=(1 // 2, 1 // 2),
 				dense_kernel_size=1,
