@@ -45,7 +45,7 @@ class Dcls3_1_SJ(Dcls3_1d):
 		if self.random_delay:
 			with torch.no_grad():
 				lim = dilated_kernel_size[0] // 2
-				self.P.data = torch.randint(-lim, lim+1, self.P.shape)
+				self.P.data = torch.randint(-lim, lim+1, self.P.shape, device=self.P.device, requires_grad=self.P.requires_grad)
 		else:
 			torch.nn.init.constant_(self.P, (dilated_kernel_size[0] // 2)-0.01)
 		if self.version == 'gauss':
@@ -84,7 +84,7 @@ class DelayedConv(torch.nn.Module):
 				in_channels=in_planes,
 				out_channels=in_planes,
 				kernel_count=1,
-				learn_delay=True,
+				learn_delay=False,
 				spatial_padding=(1 // 2, 1 // 2),
 				dense_kernel_size=1,
 				dilated_kernel_size=(3, ),
@@ -100,7 +100,7 @@ class DelayedConv(torch.nn.Module):
 				in_channels=out_planes,
 				out_channels=out_planes,
 				kernel_count=1,
-				learn_delay=True,
+				learn_delay=False,
 				spatial_padding=(1 // 2, 1 // 2),
 				dense_kernel_size=1,
 				dilated_kernel_size=(3, ),
