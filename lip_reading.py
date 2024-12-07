@@ -226,6 +226,7 @@ else:
 		with torch.no_grad():
 			model.round_pos()
 	print(f'Total number of parameters: {sum(p.numel() for p in model.parameters())}')
+	print(f'Total number of learnable parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}')  
 	test_loss, accuracy = test(model, DEVICE, test_loader, num_labels=NUM_CLASSES)
 	print(f'Test Accuracy: {accuracy}')
 	print('###############################')
