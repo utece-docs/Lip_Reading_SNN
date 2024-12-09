@@ -206,6 +206,8 @@ if not args.analysis:
 else:
 	model_path = os.path.join(MODEL_BASE_PATH, args.checkpoint_name + '.pt')
 	model_state_dict = torch.load(model_path, map_location=DEVICE)
+	print(f'Total number of parameters: {sum(p.numel() for p in model.parameters())}')
+	print(f'Total number of learnable parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}')  
 	if 'model' in model_state_dict.keys():
 		model_state_dict = model_state_dict['model']
 	if args.change:
@@ -225,8 +227,6 @@ else:
 	if args.round:
 		with torch.no_grad():
 			model.round_pos()
-	print(f'Total number of parameters: {sum(p.numel() for p in model.parameters())}')
-	print(f'Total number of learnable parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}')  
 	test_loss, accuracy = test(model, DEVICE, test_loader, num_labels=NUM_CLASSES)
 	print(f'Test Accuracy: {accuracy}')
 	print('###############################')
